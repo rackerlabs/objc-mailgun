@@ -79,6 +79,16 @@ NSString * const kMailgunURL = @"https://api.mailgun.net/v2";
 - (void)sendMessage:(MGMessage *)message
             success:(void (^)(NSString *messageId))success
             failure:(void (^)(NSError *error))failure {
+    [self sendMessage:message
+			  success:success
+			  failure:failure
+			 progress:nil];
+}
+
+- (void)sendMessage:(MGMessage *)message
+            success:(void (^)(NSString *messageId))success
+            failure:(void (^)(NSError *error))failure
+		   progress:(void (^)(NSUInteger bytesWritten, long long totalBytesWritten, long long totalBytesExpectedToWrite))progressBlock {
     NSParameterAssert(message);
     AFHTTPRequestOperation *operation = [self HTTPRequestOperationWithRequest:[self createSendRequest:message]
                                                                       success:^(AFHTTPRequestOperation *_operation, id responseObject) {
@@ -92,6 +102,9 @@ NSString * const kMailgunURL = @"https://api.mailgun.net/v2";
                                                                               failure(error);
                                                                           }
                                                                       }];
+	
+	[operation setUploadProgressBlock:progressBlock];
+	
     [self enqueueHTTPRequestOperation:operation];
 }
 
