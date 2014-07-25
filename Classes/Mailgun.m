@@ -10,6 +10,13 @@
 
 NSString * const kMailgunURL = @"https://api.mailgun.net/v2";
 
+@interface Mailgun()
+
+@property (nonatomic) AFJSONRequestSerializer *serializer;
+@property (nonatomic) NSOperationQueue *operationQueue;
+
+@end
+
 @implementation Mailgun
 
 + (instancetype)client {
@@ -18,6 +25,7 @@ NSString * const kMailgunURL = @"https://api.mailgun.net/v2";
     dispatch_once(&onceToken, ^{
         client = [[Mailgun alloc] initWithBaseURL:[NSURL URLWithString:kMailgunURL]];
     });
+	
     return client;
 }
 
@@ -33,17 +41,17 @@ NSString * const kMailgunURL = @"https://api.mailgun.net/v2";
 - (id)initWithBaseURL:(NSURL *)url {
     self = [super initWithBaseURL:url];
     if (self) {
-        [self registerHTTPOperationClass:[AFJSONRequestOperation class]];
-        [self setDefaultHeader:@"Accept" value:@"application/json"];
-        self.parameterEncoding = AFFormURLParameterEncoding;
+		self.serializer = [[AFJSONRequestSerializer alloc] init];
+		[self.serializer setValue:@"application/json" forHTTPHeaderField:@"Accept"];
+		self.operationQueue = [[NSOperationQueue alloc] init];
     }
     return self;
 }
 
 - (void)setApiKey:(NSString *)apiKey {
     NSParameterAssert(apiKey);
-    [self clearAuthorizationHeader];
-    [self setAuthorizationHeaderWithUsername:@"api" password:apiKey];
+	[self.serializer clearAuthorizationHeader];
+	[self.serializer setAuthorizationHeaderFieldWithUsername:@"api" password:apiKey];
     _apiKey = apiKey;
 }
 
@@ -59,16 +67,18 @@ NSString * const kMailgunURL = @"https://api.mailgun.net/v2";
 }
 
 - (NSURLRequest *)createSendRequest:(MGMessage *)message {
-    NSString *messagePath = [NSString stringWithFormat:@"%@/%@", self.domain, @"messages"];
+    NSString *messagePath = [NSString stringWithFormat:@"%@%@/%@", self.baseURL, self.domain, @"messages"];
     NSDictionary *params = [message dictionary];
-    NSURLRequest *request = [self multipartFormRequestWithMethod:@"POST"
-                                                            path:messagePath
-                                                      parameters:params
-                                       constructingBodyWithBlock:^(id<AFMultipartFormData> formData) {
-                                           [self buildFormData:formData withAttachments:message.attachments];
-                                           [self buildFormData:formData withAttachments:message.inlineAttachments];
-        
-                                       }];
+	NSURLRequest *request = [self.serializer multipartFormRequestWithMethod:@"POST"
+										  URLString:messagePath
+										 parameters:params
+						  constructingBodyWithBlock:^(id<AFMultipartFormData> formData) {
+							  
+							  [self buildFormData:formData withAttachments:message.attachments];
+							  [self buildFormData:formData withAttachments:message.inlineAttachments];
+						  }
+											  error:nil];
+	
     return request;
 }
 
@@ -92,7 +102,8 @@ NSString * const kMailgunURL = @"https://api.mailgun.net/v2";
                                                                               failure(error);
                                                                           }
                                                                       }];
-    [self enqueueHTTPRequestOperation:operation];
+	
+	[self.operationQueue addOperation:operation];
 }
 
 - (void)sendMessageTo:(NSString *)to
@@ -122,9 +133,12 @@ NSString * const kMailgunURL = @"https://api.mailgun.net/v2";
     NSParameterAssert(list);
     NSParameterAssert(emailAddress);
     NSString *messagePath = [NSString stringWithFormat:@"lists/%@/%@/%@", list, @"members", emailAddress];
-    NSURLRequest *request = [self requestWithMethod:@"GET"
-                                               path:messagePath
-                                         parameters:nil];
+	
+	NSURLRequest *request = [self.serializer requestWithMethod:@"GET"
+											   URLString:messagePath
+											  parameters:nil
+												   error:nil];
+
     AFHTTPRequestOperation *operation = [self HTTPRequestOperationWithRequest:request
                                                                       success:^(AFHTTPRequestOperation *_operation, id responseObject) {
                                                                           if (success) {
@@ -137,7 +151,7 @@ NSString * const kMailgunURL = @"https://api.mailgun.net/v2";
                                                                               failure(error);
                                                                           }
                                                                       }];
-    [self enqueueHTTPRequestOperation:operation];
+    [self.operationQueue addOperation:operation];
 }
 
 - (void)unsubscribeToList:(NSString *)list
@@ -147,9 +161,11 @@ NSString * const kMailgunURL = @"https://api.mailgun.net/v2";
     NSParameterAssert(list);
     NSParameterAssert(emailAddress);
     NSString *messagePath = [NSString stringWithFormat:@"lists/%@/%@/%@", list, @"members", emailAddress];
-    NSURLRequest *request = [self requestWithMethod:@"DELETE"
-                                               path:messagePath
-                                         parameters:nil];
+    NSURLRequest *request = [self.serializer requestWithMethod:@"DELETE"
+													 URLString:messagePath
+													parameters:nil
+														 error:nil];
+	
     AFHTTPRequestOperation *operation = [self HTTPRequestOperationWithRequest:request
                                                                       success:^(AFHTTPRequestOperation *_operation, id responseObject) {
                                                                           if (success) {
@@ -162,7 +178,7 @@ NSString * const kMailgunURL = @"https://api.mailgun.net/v2";
                                                                               failure(error);
                                                                           }
                                                                       }];
-    [self enqueueHTTPRequestOperation:operation];
+    [self.operationQueue addOperation:operation];
 }
 
 - (void)subscribeToList:(NSString *)list 
@@ -175,9 +191,11 @@ NSString * const kMailgunURL = @"https://api.mailgun.net/v2";
     NSDictionary *params = @{@"address": emailAddress,
                              @"subscribed": @"yes",
                              @"upsert": @"yes"};
-    NSURLRequest *request = [self requestWithMethod:@"POST"
-                                               path:messagePath
-                                         parameters:params];
+    NSURLRequest *request = [self.serializer requestWithMethod:@"POST"
+													 URLString:messagePath
+													parameters:params
+														 error:nil];
+	
     AFHTTPRequestOperation *operation = [self HTTPRequestOperationWithRequest:request
                                                                       success:^(AFHTTPRequestOperation *_operation, id responseObject) {
                                                                           if (success) {
@@ -190,7 +208,7 @@ NSString * const kMailgunURL = @"https://api.mailgun.net/v2";
                                                                               failure(error);
                                                                           }
                                                                       }];
-    [self enqueueHTTPRequestOperation:operation];
+    [self.operationQueue addOperation:operation];
 }
 
 @end

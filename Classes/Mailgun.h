@@ -35,7 +35,6 @@
 #endif
 
 #import <AFNetworking/AFNetworking.h>
-#import <AFNetworking/AFHTTPClient.h>
 
 #import "MGMessage.h"
 
@@ -76,7 +75,7 @@
  
  */
 
-@interface Mailgun : AFHTTPClient
+@interface Mailgun : AFHTTPRequestOperationManager
 
 ///---------------------------
 /// @name Mailgun Client Setup
