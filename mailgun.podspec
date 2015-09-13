@@ -10,6 +10,7 @@ Pod::Spec.new do |s|
   s.osx.deployment_target = '10.7'
   s.source_files = 'Classes', 'Classes/*.{h,m}'
   s.requires_arc = true
-  s.dependency 'AFNetworking', '~> 1.1.0'
+  s.framework	 = 'SystemConfiguration', 'MobileCoreServices'
+  s.prefix_header_contents = "#import <SystemConfiguration/SystemConfiguration.h>\n#import <MobileCoreServices/MobileCoreServices.h>"
   s.dependency 'AFNetworking', '~> 1.3.0'
 end
