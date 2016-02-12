@@ -26,7 +26,7 @@ Sending Example
 Installation
 ============
 
-1. Install via Cocoapods
+1. Install via CocoaPods
 
         pod install mailgun
 
