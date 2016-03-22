@@ -35,7 +35,6 @@
 #endif
 
 #import <AFNetworking/AFNetworking.h>
-#import <AFNetworking/AFHTTPClient.h>
 
 #import "MGMessage.h"
 
@@ -76,7 +75,7 @@
  
  */
 
-@interface Mailgun : AFHTTPClient
+@interface Mailgun : AFHTTPSessionManager
 
 ///---------------------------
 /// @name Mailgun Client Setup
@@ -122,7 +121,6 @@
 
 /**
  Sends a previously constructed MGMessage without success or failure blocks.
-
  @param message The MGMessage instance to send.
  */
 - (void)sendMessage:(MGMessage *)message;

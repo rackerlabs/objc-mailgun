@@ -33,17 +33,15 @@ NSString * const kMailgunURL = @"https://api.mailgun.net/v2";
 - (id)initWithBaseURL:(NSURL *)url {
     self = [super initWithBaseURL:url];
     if (self) {
-        [self registerHTTPOperationClass:[AFJSONRequestOperation class]];
-        [self setDefaultHeader:@"Accept" value:@"application/json"];
-        self.parameterEncoding = AFFormURLParameterEncoding;
+        self.requestSerializer = [AFJSONRequestSerializer serializer];
     }
     return self;
 }
 
 - (void)setApiKey:(NSString *)apiKey {
     NSParameterAssert(apiKey);
-    [self clearAuthorizationHeader];
-    [self setAuthorizationHeaderWithUsername:@"api" password:apiKey];
+    [self.requestSerializer clearAuthorizationHeader];
+    [self.requestSerializer setAuthorizationHeaderFieldWithUsername:@"api" password:apiKey];
     _apiKey = apiKey;
 }
 
@@ -58,20 +56,6 @@ NSString * const kMailgunURL = @"https://api.mailgun.net/v2";
     }];
 }
 
-- (NSURLRequest *)createSendRequest:(MGMessage *)message {
-    NSString *messagePath = [NSString stringWithFormat:@"%@/%@", self.domain, @"messages"];
-    NSDictionary *params = [message dictionary];
-    NSURLRequest *request = [self multipartFormRequestWithMethod:@"POST"
-                                                            path:messagePath
-                                                      parameters:params
-                                       constructingBodyWithBlock:^(id<AFMultipartFormData> formData) {
-                                           [self buildFormData:formData withAttachments:message.attachments];
-                                           [self buildFormData:formData withAttachments:message.inlineAttachments];
-        
-                                       }];
-    return request;
-}
-
 - (void)sendMessage:(MGMessage *)message {
     [self sendMessage:message success:nil failure:nil];
 }
@@ -79,20 +63,28 @@ NSString * const kMailgunURL = @"https://api.mailgun.net/v2";
 - (void)sendMessage:(MGMessage *)message
             success:(void (^)(NSString *messageId))success
             failure:(void (^)(NSError *error))failure {
+    
     NSParameterAssert(message);
-    AFHTTPRequestOperation *operation = [self HTTPRequestOperationWithRequest:[self createSendRequest:message]
-                                                                      success:^(AFHTTPRequestOperation *_operation, id responseObject) {
-                                                                          if (success) {
-                                                                              success(responseObject[@"id"]);
-                                                                          }
-                                                                      }
-                                                                      failure:^(AFHTTPRequestOperation *_operation, NSError *error) {
-                                                                          NSLog(@"%@", error);
-                                                                          if (failure) {
-                                                                              failure(error);
-                                                                          }
-                                                                      }];
-    [self enqueueHTTPRequestOperation:operation];
+    NSString *messagePath = [NSString stringWithFormat:@"%@/%@", self.domain, @"messages"];
+    NSDictionary *params = [message dictionary];
+    __block id weakSelf = self;
+    
+    [self POST:messagePath parameters:params constructingBodyWithBlock:^(id<AFMultipartFormData> formData) {
+        [weakSelf buildFormData:formData withAttachments:message.attachments];
+        [weakSelf buildFormData:formData withAttachments:message.inlineAttachments];
+    } progress:nil success:^(NSURLSessionDataTask * _Nonnull task, id  _Nonnull responseObject) {
+        
+        if (success) {
+            success(responseObject[@"id"]);
+        }
+        
+    }  failure:^(NSURLSessionDataTask * _Nonnull task, NSError * _Nonnull error) {
+        
+        NSLog(@"%@", error);
+        if (failure) {
+            failure(error);
+        }
+    }];
 }
 
 - (void)sendMessageTo:(NSString *)to
@@ -122,22 +114,16 @@ NSString * const kMailgunURL = @"https://api.mailgun.net/v2";
     NSParameterAssert(list);
     NSParameterAssert(emailAddress);
     NSString *messagePath = [NSString stringWithFormat:@"lists/%@/%@/%@", list, @"members", emailAddress];
-    NSURLRequest *request = [self requestWithMethod:@"GET"
-                                               path:messagePath
-                                         parameters:nil];
-    AFHTTPRequestOperation *operation = [self HTTPRequestOperationWithRequest:request
-                                                                      success:^(AFHTTPRequestOperation *_operation, id responseObject) {
-                                                                          if (success) {
-                                                                              success(responseObject);
-                                                                          }
-                                                                      }
-                                                                      failure:^(AFHTTPRequestOperation *_operation, NSError *error) {
-                                                                          NSLog(@"%@", error);
-                                                                          if (failure) {
-                                                                              failure(error);
-                                                                          }
-                                                                      }];
-    [self enqueueHTTPRequestOperation:operation];
+    [self GET:messagePath parameters:nil progress:nil success:^(NSURLSessionDataTask * _Nonnull task, id  _Nonnull responseObject) {
+        if (success) {
+            success(responseObject);
+        }
+    } failure:^(NSURLSessionDataTask * _Nonnull task, NSError * _Nonnull error) {
+        NSLog(@"%@", error);
+        if (failure) {
+            failure(error);
+        }
+    }];
 }
 
 - (void)unsubscribeToList:(NSString *)list
@@ -147,22 +133,17 @@ NSString * const kMailgunURL = @"https://api.mailgun.net/v2";
     NSParameterAssert(list);
     NSParameterAssert(emailAddress);
     NSString *messagePath = [NSString stringWithFormat:@"lists/%@/%@/%@", list, @"members", emailAddress];
-    NSURLRequest *request = [self requestWithMethod:@"DELETE"
-                                               path:messagePath
-                                         parameters:nil];
-    AFHTTPRequestOperation *operation = [self HTTPRequestOperationWithRequest:request
-                                                                      success:^(AFHTTPRequestOperation *_operation, id responseObject) {
-                                                                          if (success) {
-                                                                              success();
-                                                                          }
-                                                                      }
-                                                                      failure:^(AFHTTPRequestOperation *_operation, NSError *error) {
-                                                                          NSLog(@"%@", error);
-                                                                          if (failure) {
-                                                                              failure(error);
-                                                                          }
-                                                                      }];
-    [self enqueueHTTPRequestOperation:operation];
+    
+    [self DELETE:messagePath parameters:nil success:^(NSURLSessionDataTask * _Nonnull task, id  _Nonnull responseObject) {
+        if (success) {
+            success();
+        }
+    } failure:^(NSURLSessionDataTask * _Nonnull task, NSError * _Nonnull error) {
+        NSLog(@"%@", error);
+        if (failure) {
+            failure(error);
+        }
+    }];
 }
 
 - (void)subscribeToList:(NSString *)list 
@@ -175,22 +156,19 @@ NSString * const kMailgunURL = @"https://api.mailgun.net/v2";
     NSDictionary *params = @{@"address": emailAddress,
                              @"subscribed": @"yes",
                              @"upsert": @"yes"};
-    NSURLRequest *request = [self requestWithMethod:@"POST"
-                                               path:messagePath
-                                         parameters:params];
-    AFHTTPRequestOperation *operation = [self HTTPRequestOperationWithRequest:request
-                                                                      success:^(AFHTTPRequestOperation *_operation, id responseObject) {
-                                                                          if (success) {
-                                                                              success();
-                                                                          }
-                                                                      }
-                                                                      failure:^(AFHTTPRequestOperation *_operation, NSError *error) {
-                                                                          NSLog(@"%@", error);
-                                                                          if (failure) {
-                                                                              failure(error);
-                                                                          }
-                                                                      }];
-    [self enqueueHTTPRequestOperation:operation];
+    
+    [self POST:messagePath parameters:params constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
+        
+    } progress:nil success:^(NSURLSessionDataTask * _Nonnull task, id  _Nonnull responseObject) {
+        if (success) {
+            success();
+        }
+    } failure:^(NSURLSessionDataTask * _Nonnull task, NSError * _Nonnull error) {
+        NSLog(@"%@", error);
+        if (failure) {
+            failure(error);
+        }
+    }];
 }
 
 @end
