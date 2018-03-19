@@ -146,7 +146,7 @@ NSString * const kRFC2822Template = @"EEE, dd MMM yyyy HH:mm:ss Z";
     };
     [params addEntriesFromDictionary:otherParams];
     [_headers enumerateKeysAndObjectsUsingBlock:^(id key, id obj, BOOL *stop) {
-        [params setObject:obj forKey:[NSString stringWithFormat:@"h:X-%@", key]];
+        [params setObject:obj forKey:[NSString stringWithFormat:@"h:%@", key]];
     }];
     [_variables enumerateKeysAndObjectsUsingBlock:^(id key, id obj, BOOL *stop) {
         [params setObject:obj forKey:[NSString stringWithFormat:@"v:%@", key]];
